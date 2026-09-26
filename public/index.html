@@ -3,118 +3,361 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Subastas de Vehículos Copart</title>
+  <title>AutoSubastas Copart | Plataforma en Tiempo Real</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5 & Font Awesome -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Vue 3 & Socket.io -->
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
   <script src="/socket.io/socket.io.js"></script>
+
   <style>
-    body { background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .badge-verde { background-color: #22c55e; color: white; }
-    .badge-amarillo { background-color: #eab308; color: white; }
-    .badge-rojo { background-color: #ef4444; color: white; }
-    .card-hover:hover { transform: translateY(-4px); transition: 0.2s ease-in-out; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+    :root {
+      --bg-main: #f8fafc;
+      --card-bg: #ffffff;
+      --brand-primary: #2563eb;
+      --brand-hover: #1d4ed8;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --badge-verde-bg: #dcfce7;
+      --badge-verde-txt: #15803d;
+      --badge-amarillo-bg: #fef9c3;
+      --badge-amarillo-txt: #a16207;
+      --badge-rojo-bg: #fee2e2;
+      --badge-rojo-txt: #b91c1c;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-dark);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Navbar elegante */
+    .top-navbar {
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+    }
+    .brand-logo {
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--brand-primary);
+    }
+
+    /* Filtros estilizados */
+    .filter-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .form-control, .form-select {
+      border-color: #cbd5e1;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 400;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    /* Tarjetas de vehículos */
+    .car-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+    }
+    .car-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08);
+      border-color: #cbd5e1;
+    }
+    .car-img-wrapper {
+      position: relative;
+      height: 210px;
+      overflow: hidden;
+      background: #e2e8f0;
+    }
+    .car-img-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s ease;
+    }
+    .car-card:hover .car-img-wrapper img {
+      transform: scale(1.04);
+    }
+
+    /* Semáforo de Daños estilo Copart */
+    .badge-damage {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.4rem 0.75rem;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .badge-Verde {
+      background-color: var(--badge-verde-bg);
+      color: var(--badge-verde-txt);
+      border: 1px solid #bbf7d0;
+    }
+    .badge-Amarillo {
+      background-color: var(--badge-amarillo-bg);
+      color: var(--badge-amarillo-txt);
+      border: 1px solid #fde047;
+    }
+    .badge-Rojo {
+      background-color: var(--badge-rojo-bg);
+      color: var(--badge-rojo-txt);
+      border: 1px solid #fca5a5;
+    }
+
+    /* Chips de especificaciones */
+    .spec-chip {
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 4px 9px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+
+    /* Caja de precio actual */
+    .bid-box {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    /* Botones premium */
+    .btn-brand {
+      background-color: var(--brand-primary);
+      color: #fff;
+      font-weight: 600;
+      border-radius: 10px;
+      border: none;
+      transition: 0.2s;
+    }
+    .btn-brand:hover {
+      background-color: var(--brand-hover);
+      color: #fff;
+    }
+
+    /* Animación pulso para subasta activa */
+    .live-pulse {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      margin-right: 6px;
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
   </style>
 </head>
 <body>
-  <div id="app" class="container py-4">
-    <!-- NAVEGACIÓN SUPERIOR -->
-    <header class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
-      <div>
-        <h2 class="fw-bold text-primary m-0">🚗 AutoSubastas Copart</h2>
-        <small class="text-secondary">Subasta de vehículos importados en tiempo real</small>
-      </div>
-      <div>
-        <span v-if="usuario" class="me-3">Sesión activa: <strong>{{ usuario.nombre }}</strong></span>
-        <button v-if="usuario" class="btn btn-outline-danger btn-sm" @click="logout">Salir</button>
-        <div v-else>
-          <button class="btn btn-outline-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#loginModal">Iniciar Sesión</button>
-          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#registroModal">Crear Cuenta</button>
+  <div id="app">
+    <!-- BARRA SUPERIOR ELEGANTE -->
+    <nav class="top-navbar sticky-top py-3 mb-4">
+      <div class="container d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <div class="bg-primary text-white rounded-3 p-2 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+            <i class="fa-solid fa-gavel"></i>
+          </div>
+          <div>
+            <h5 class="brand-logo m-0">AutoSubastas <span class="text-dark fw-bold">Copart</span></h5>
+            <small class="text-muted" style="font-size: 0.75rem;"><span class="live-pulse"></span>Subastas en vivo en tiempo real</small>
+          </div>
         </div>
-      </div>
-    </header>
 
-    <!-- CONTROL DE PUBLICACIÓN -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="fw-bold m-0">Inventario Global de Subastas</h5>
-      <button v-if="usuario" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#publicarModal">+ Publicar Vehículo</button>
-      <span v-else class="badge bg-light text-dark border p-2">Modo lectura: Inicia sesión para pujar o publicar</span>
-    </div>
-
-    <!-- FILTROS MULTITAREA -->
-    <div class="card p-3 mb-4 shadow-sm border-0 bg-white">
-      <div class="row g-2">
-        <div class="col-md-3">
-          <input v-model="filtros.texto" type="text" class="form-control form-control-sm" placeholder="Buscar marca o modelo...">
-        </div>
-        <div class="col-md-2">
-          <input v-model.number="filtros.anio" type="number" class="form-control form-control-sm" placeholder="Año mín.">
-        </div>
-        <div class="col-md-3">
-          <select v-model="filtros.combustible" class="form-select form-select-sm">
-            <option value="">Todos los Combustibles</option>
-            <option value="Gasolina">Gasolina</option>
-            <option value="Diésel">Diésel</option>
-            <option value="Híbrido">Híbrido</option>
-            <option value="Eléctrico">Eléctrico</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <select v-model="filtros.danio" class="form-select form-select-sm">
-            <option value="">Cualquier Daño</option>
-            <option value="Verde">Verde (Limpio)</option>
-            <option value="Amarillo">Amarillo (Reparable)</option>
-            <option value="Rojo">Rojo (Salvamento)</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <button class="btn btn-secondary btn-sm w-100" @click="limpiarFiltros">Restablecer</button>
+        <div class="d-flex align-items-center gap-2">
+          <template v-if="usuario">
+            <div class="d-flex align-items-center gap-2 me-2">
+              <div class="rounded-circle bg-light border text-primary fw-bold d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                {{ usuario.nombre.charAt(0) }}
+              </div>
+              <div class="d-none d-sm-block text-start">
+                <div class="fw-semibold small">{{ usuario.nombre }}</div>
+                <div class="text-muted" style="font-size: 0.7rem;">{{ usuario.correo }}</div>
+              </div>
+            </div>
+            <button class="btn btn-outline-danger btn-sm rounded-pill px-3" @click="logout">
+              <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Salir
+            </button>
+          </template>
+          <template v-else>
+            <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#loginModal">
+              <i class="fa-regular fa-user me-1"></i> Iniciar Sesión
+            </button>
+            <button class="btn btn-brand btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#registroModal">
+              Crear Cuenta
+            </button>
+          </template>
         </div>
       </div>
-    </div>
+    </nav>
 
-    <!-- TARJETAS DE VEHÍCULOS -->
-    <div class="row g-4">
-      <div class="col-md-6 col-lg-4" v-for="v in vehiculosFiltrados" :key="v.id">
-        <div class="card h-100 card-hover border-0 shadow-sm">
-          <img :src="v.fotos[0]" class="card-img-top" style="height: 200px; object-fit: cover;">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-              <h5 class="card-title fw-bold m-0">{{ v.anio }} {{ v.marca }} {{ v.modelo }}</h5>
-              <span class="badge" :class="'badge-' + v.estadoDanio.toLowerCase()">{{ v.estadoDanio }}</span>
-            </div>
-            <p class="text-muted small mb-2">{{ v.articulo }} | {{ v.motor }} | {{ v.combustible }} | {{ v.traccion }}</p>
-
-            <div class="p-2 bg-light rounded my-2 text-center">
-              <span class="text-secondary small">Oferta Actual</span>
-              <h4 class="text-success fw-bold m-0">Q. {{ v.ofertaActual.toLocaleString() }}</h4>
-            </div>
-
-            <!-- INDICADORES EN TIEMPO REAL -->
-            <div v-if="usuario" class="mb-2 text-center">
-              <span v-if="v.ganadorActualId === usuario.id" class="badge bg-success w-100 py-2">🎉 ¡Vas ganando esta subasta!</span>
-              <span v-else-if="v.historialPujas && v.historialPujas.some(h => v.ganadorActualId !== usuario.id)" class="badge bg-danger w-100 py-2">⚠️ ¡Tu oferta ha sido superada!</span>
-            </div>
-
-            <button class="btn btn-outline-primary w-100 mt-2" @click="abrirSubasta(v)">Ver Detalle y Ofertar</button>
+    <div class="container pb-5">
+      <!-- HEADER INVENTARIO & ACCIÓN DE PUBLICAR -->
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+          <h4 class="fw-bold m-0 text-slate-900">Catálogo Global de Vehículos</h4>
+          <p class="text-muted small m-0">Explora lotes disponibles, inspecciona fichas técnicas y oferta en vivo</p>
+        </div>
+        <div>
+          <button v-if="usuario" class="btn btn-brand rounded-pill px-4 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#publicarModal">
+            <i class="fa-solid fa-plus me-1"></i> Publicar Vehículo
+          </button>
+          <div v-else class="badge bg-white text-muted border px-3 py-2 rounded-pill shadow-xs">
+            <i class="fa-solid fa-lock text-warning me-1"></i> Modo lectura: Inicia sesión para pujar o publicar
           </div>
         </div>
       </div>
+
+      <!-- FILTROS MULTITAREA AVANZADOS -->
+      <div class="filter-card p-3 p-md-4 mb-4">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fa-solid fa-magnifying-glass me-1"></i> Buscar</label>
+            <input v-model="filtros.texto" type="text" class="form-control" placeholder="Marca, modelo o estilo...">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fa-solid fa-calendar me-1"></i> Año mínimo</label>
+            <input v-model.number="filtros.anio" type="number" class="form-control" placeholder="Ej. 2018">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fa-solid fa-gas-pump me-1"></i> Combustible</label>
+            <select v-model="filtros.combustible" class="form-select">
+              <option value="">Todos los combustibles</option>
+              <option value="Gasolina">Gasolina</option>
+              <option value="Diésel">Diésel</option>
+              <option value="Híbrido">Híbrido</option>
+              <option value="Eléctrico">Eléctrico</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fa-solid fa-shield-halved me-1"></i> Clasificación Daño</label>
+            <select v-model="filtros.danio" class="form-select">
+              <option value="">Cualquier estado</option>
+              <option value="Verde">Verde (Limpio / Menor)</option>
+              <option value="Amarillo">Amarillo (Reparable)</option>
+              <option value="Rojo">Rojo (Salvamento)</option>
+            </select>
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-outline-secondary w-100 py-2 rounded-3" @click="limpiarFiltros">
+              <i class="fa-solid fa-rotate-left me-1"></i> Restablecer
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- GRID DE VEHÍCULOS -->
+      <div class="row g-4">
+        <div class="col-md-6 col-lg-4" v-for="v in vehiculosFiltrados" :key="v.id">
+          <div class="car-card h-100 d-flex flex-column">
+            <!-- IMAGEN PRINCIPAL CON BADGE DE DAÑO -->
+            <div class="car-img-wrapper">
+              <img :src="v.fotos && v.fotos[0] ? v.fotos[0] : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600'" 
+                   @error="$event.target.src = 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600'" 
+                   alt="Vehículo">
+              <div class="position-absolute top-0 end-0 m-3">
+                <span class="badge-damage" :class="'badge-' + v.estadoDanio">
+                  <i class="fa-solid fa-circle" style="font-size: 7px;"></i> {{ v.estadoDanio }}
+                </span>
+              </div>
+            </div>
+
+            <!-- CONTENIDO DE LA TARJETA -->
+            <div class="p-4 d-flex flex-column flex-grow-1 justify-content-between">
+              <div>
+                <h5 class="fw-bold mb-1 text-slate-900">{{ v.anio }} {{ v.marca }} {{ v.modelo }}</h5>
+                <p class="text-muted small mb-3">{{ v.articulo }}</p>
+
+                <!-- SPECS PILLS -->
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                  <span class="spec-chip"><i class="fa-solid fa-gears me-1"></i>{{ v.transmision }}</span>
+                  <span class="spec-chip"><i class="fa-solid fa-gas-pump me-1"></i>{{ v.combustible }}</span>
+                  <span class="spec-chip"><i class="fa-solid fa-road me-1"></i>{{ v.traccion }}</span>
+                </div>
+              </div>
+
+              <div>
+                <!-- PRECIO ACTUALIZADO EN VIVO -->
+                <div class="bid-box mb-3 text-center">
+                  <span class="text-muted small text-uppercase fw-semibold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Oferta Actual</span>
+                  <h3 class="text-success fw-bold m-0">Q. {{ v.ofertaActual.toLocaleString() }}</h3>
+                  <small class="text-muted" style="font-size: 0.75rem;">Base: Q. {{ v.montoBase.toLocaleString() }}</small>
+                </div>
+
+                <!-- BADGES DINÁMICOS EN TIEMPO REAL -->
+                <div v-if="usuario" class="mb-3 text-center">
+                  <span v-if="v.ganadorActualId === usuario.id" class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 w-100 py-2 rounded-3 fw-semibold">
+                    <i class="fa-solid fa-trophy me-1"></i> ¡Vas ganando esta subasta!
+                  </span>
+                  <span v-else-if="v.historialPujas && v.historialPujas.some(h => v.ganadorActualId !== usuario.id)" class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 w-100 py-2 rounded-3 fw-semibold">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> ¡Tu oferta ha sido superada!
+                  </span>
+                </div>
+
+                <!-- ACCIÓN -->
+                <button class="btn btn-outline-primary w-100 py-2 rounded-3 fw-semibold" @click="abrirSubasta(v)">
+                  Ver Detalle y Ofertar <i class="fa-solid fa-arrow-right ms-1"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VACÍO SI FILTROS NO COINCIDEN -->
+      <div v-if="vehiculosFiltrados.length === 0" class="text-center py-5">
+        <i class="fa-solid fa-car-side fa-3x text-muted mb-3 opacity-50"></i>
+        <h5 class="fw-semibold text-secondary">No encontramos vehículos con esos filtros</h5>
+        <button class="btn btn-link text-decoration-none mt-2" @click="limpiarFiltros">Restablecer filtros</button>
+      </div>
     </div>
 
-    <!-- MODAL DETALLE Y SUBASTA -->
+    <!-- MODAL DETALLE CON CARRUSEL DE 5+ FOTOS Y TIEMPO REAL -->
     <div class="modal fade" id="subastaModal" tabindex="-1">
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content" v-if="seleccionado">
-          <div class="modal-header">
-            <h5 class="modal-title fw-bold">{{ seleccionado.anio }} {{ seleccionado.marca }} {{ seleccionado.modelo }}</h5>
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;" v-if="seleccionado">
+          <div class="modal-header border-0 pb-0">
+            <div>
+              <span class="badge-damage mb-1" :class="'badge-' + seleccionado.estadoDanio">
+                {{ seleccionado.estadoDanio }}
+              </span>
+              <h4 class="modal-title fw-bold">{{ seleccionado.anio }} {{ seleccionado.marca }} {{ seleccionado.modelo }}</h4>
+            </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
-            <!-- CARRUSEL DE FOTOS -->
-            <div id="carruselFotos" class="carousel slide mb-3" data-bs-ride="carousel">
-              <div class="carousel-inner rounded">
-                <div v-for="(f, i) in seleccionado.fotos" :key="i" class="carousel-item" :class="{ active: i === 0 }">
-                  <img :src="f" class="d-block w-100" style="height: 350px; object-fit: cover;">
+          <div class="modal-body p-4">
+            <!-- CARRUSEL DE FOTOS (MÍNIMO 5) -->
+            <div id="carruselFotos" class="carousel slide mb-4 rounded-4 overflow-hidden shadow-sm" data-bs-ride="carousel">
+              <div class="carousel-inner" style="height: 360px;">
+                <div v-for="(f, i) in seleccionado.fotos" :key="i" class="carousel-item h-100" :class="{ active: i === 0 }">
+                  <img :src="f" class="d-block w-100 h-100 object-fit-cover" alt="Foto">
                 </div>
               </div>
               <button class="carousel-control-prev" type="button" data-bs-target="#carruselFotos" data-bs-slide="prev">
@@ -125,127 +368,220 @@
               </button>
             </div>
 
-            <div class="row">
-              <div class="col-md-6">
-                <h6><strong>Ficha Técnica:</strong></h6>
-                <ul class="small list-unstyled">
-                  <li><strong>Motor:</strong> {{ seleccionado.motor }} ({{ seleccionado.cilindros }} Cilindros)</li>
-                  <li><strong>Transmisión:</strong> {{ seleccionado.transmision }}</li>
-                  <li><strong>Tracción:</strong> {{ seleccionado.traccion }}</li>
-                  <li><strong>Cierre:</strong> {{ new Date(seleccionado.fechaCierre).toLocaleString() }}</li>
+            <div class="row g-4 mb-4">
+              <!-- FICHA TÉCNICA -->
+              <div class="col-md-6 border-end-md">
+                <h6 class="fw-bold mb-3"><i class="fa-solid fa-list-check text-primary me-2"></i>Ficha Técnica del Lote</h6>
+                <div class="row g-2 small">
+                  <div class="col-6 text-muted">Tipo de Artículo:</div>
+                  <div class="col-6 fw-semibold text-end">{{ seleccionado.articulo }}</div>
+                  <div class="col-6 text-muted">Motor:</div>
+                  <div class="col-6 fw-semibold text-end">{{ seleccionado.motor }}</div>
+                  <div class="col-6 text-muted">Cilindrada:</div>
+                  <div class="col-6 fw-semibold text-end">{{ seleccionado.cilindros }} Cilindros</div>
+                  <div class="col-6 text-muted">Transmisión:</div>
+                  <div class="col-6 fw-semibold text-end">{{ seleccionado.transmision }}</div>
+                  <div class="col-6 text-muted">Combustible:</div>
+                  <div class="col-6 fw-semibold text-end">{{ seleccionado.combustible }}</div>
+                  <div class="col-6 text-muted">Tracción:</div>
+                  <div class="col-6 fw-semibold text-end">{{ seleccionado.traccion }}</div>
+                </div>
+              </div>
+
+              <!-- RESUMEN DE LA SUBASTA -->
+              <div class="col-md-6 text-center text-md-end d-flex flex-column justify-content-center">
+                <span class="text-muted small">Precio Base de Inicio</span>
+                <h5 class="fw-semibold text-secondary mb-2">Q. {{ seleccionado.montoBase.toLocaleString() }}</h5>
+                <span class="text-muted small">Oferta Máxima Actual</span>
+                <h2 class="text-success fw-bold m-0">Q. {{ seleccionado.ofertaActual.toLocaleString() }}</h2>
+                <div class="mt-2 text-danger small fw-semibold">
+                  <i class="fa-solid fa-circle-info me-1"></i> Oferta mínima requerida (+10%): Q. {{ (seleccionado.ofertaActual * 1.10).toFixed(2) }}
+                </div>
+              </div>
+            </div>
+
+            <!-- MOTOR DE PUJA EN VIVO -->
+            <div class="p-3 bg-light rounded-4 border" v-if="usuario">
+              <label class="form-label fw-bold small text-secondary">Ingresa tu puja competitiva</label>
+              <div class="input-group">
+                <span class="input-group-text bg-white fw-bold">Q.</span>
+                <input type="number" class="form-control form-control-lg fw-bold text-success" v-model.number="montoOferta" :min="(seleccionado.ofertaActual * 1.10).toFixed(2)">
+                <button class="btn btn-success px-4 fw-semibold" @click="enviarPuja">
+                  <i class="fa-solid fa-gavel me-1"></i> Ofertar Ahora
+                </button>
+              </div>
+            </div>
+            <div v-else class="alert alert-warning rounded-4 text-center small mb-0">
+              <i class="fa-solid fa-user-lock me-1"></i> Debes iniciar sesión con una cuenta para poder pujar en este vehículo.
+            </div>
+
+            <!-- HISTORIAL ANÓNIMO -->
+            <div class="mt-4">
+              <h6 class="fw-bold small text-secondary mb-2"><i class="fa-solid fa-clock-rotate-left me-1"></i> Historial de Ofertas (Postores Anónimos)</h6>
+              <div class="border rounded-3 overflow-hidden bg-white">
+                <ul class="list-group list-group-flush small" style="max-height: 180px; overflow-y: auto;">
+                  <li v-for="(p, i) in seleccionado.historialPujas" :key="i" class="list-group-item d-flex justify-content-between align-items-center py-2">
+                    <span class="fw-semibold text-dark"><i class="fa-regular fa-id-badge text-muted me-2"></i>{{ p.postor }}</span>
+                    <span class="badge bg-success bg-opacity-10 text-success fw-bold px-2 py-1 fs-6">Q. {{ p.monto.toLocaleString() }}</span>
+                    <span class="text-muted" style="font-size: 0.75rem;">{{ p.hora }}</span>
+                  </li>
+                  <li v-if="!seleccionado.historialPujas || seleccionado.historialPujas.length === 0" class="list-group-item text-center text-muted py-3">
+                    Aún no hay ofertas registradas. ¡Sé el primero en ofertar!
+                  </li>
                 </ul>
               </div>
-              <div class="col-md-6 text-end">
-                <span class="text-muted">Monto Base: Q. {{ seleccionado.montoBase.toLocaleString() }}</span>
-                <h3 class="text-success fw-bold">Actual: Q. {{ seleccionado.ofertaActual.toLocaleString() }}</h3>
-                <small class="text-danger">Mínimo próxima puja (+10%): Q. {{ (seleccionado.ofertaActual * 1.10).toFixed(2) }}</small>
-              </div>
-            </div>
-
-            <div class="mt-4 p-3 border rounded bg-light" v-if="usuario">
-              <h6>Realizar Oferta</h6>
-              <div class="input-group">
-                <span class="input-group-text">Q.</span>
-                <input type="number" class="form-control" v-model.number="montoOferta" :min="(seleccionado.ofertaActual * 1.10).toFixed(2)">
-                <button class="btn btn-success px-4" @click="enviarPuja">Pujar Ahora</button>
-              </div>
-            </div>
-            <div v-else class="alert alert-warning mt-3 text-center">
-              Debes registrarte o iniciar sesión para poder realizar una puja.
-            </div>
-
-            <div class="mt-3">
-              <h6>Historial de Ofertas (Postores Anónimos):</h6>
-              <ul class="list-group list-group-flush small">
-                <li v-for="(p, i) in seleccionado.historialPujas" :key="i" class="list-group-item d-flex justify-content-between">
-                  <span>{{ p.postor }}</span>
-                  <strong class="text-success">Q. {{ p.monto.toLocaleString() }}</strong>
-                  <span class="text-muted">{{ p.hora }}</span>
-                </li>
-              </ul>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- MODAL NUEVO VEHÍCULO -->
+    <!-- MODAL DE PUBLICACIÓN DE VEHÍCULO -->
     <div class="modal fade" id="publicarModal" tabindex="-1">
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content p-3">
-          <h5 class="fw-bold mb-3">Publicar Vehículo para Subasta</h5>
-          <div class="row g-2">
-            <div class="col-md-4"><input v-model="nuevoV.marca" class="form-control mb-2" placeholder="Marca (ej. Mazda)"></div>
-            <div class="col-md-4"><input v-model="nuevoV.modelo" class="form-control mb-2" placeholder="Modelo (ej. CX-5)"></div>
-            <div class="col-md-4"><input v-model.number="nuevoV.anio" type="number" class="form-control mb-2" placeholder="Año (ej. 2020)"></div>
-            <div class="col-md-4"><input v-model="nuevoV.articulo" class="form-control mb-2" placeholder="Tipo (ej. Camioneta)"></div>
-            <div class="col-md-4"><input v-model="nuevoV.motor" class="form-control mb-2" placeholder="Motor (ej. 2.0L)"></div>
-            <div class="col-md-4"><input v-model.number="nuevoV.cilindros" type="number" class="form-control mb-2" placeholder="Cilindros (ej. 4)"></div>
-            <div class="col-md-4">
-              <select v-model="nuevoV.transmision" class="form-select mb-2">
-                <option value="Automática">Automática</option>
-                <option value="Mecánica">Mecánica</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <select v-model="nuevoV.combustible" class="form-select mb-2">
-                <option value="Gasolina">Gasolina</option>
-                <option value="Diésel">Diésel</option>
-                <option value="Híbrido">Híbrido</option>
-                <option value="Eléctrico">Eléctrico</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <select v-model="nuevoV.traccion" class="form-select mb-2">
-                <option value="FWD">FWD</option>
-                <option value="RWD">RWD</option>
-                <option value="AWD">AWD</option>
-                <option value="4WD">4WD</option>
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label small">Estado del Daño</label>
-              <select v-model="nuevoV.estadoDanio" class="form-select mb-2">
-                <option value="Verde">Verde (Daño menor / Limpio)</option>
-                <option value="Amarillo">Amarillo (Daño medio / Reparable)</option>
-                <option value="Rojo">Rojo (Daño severo / Salvamento)</option>
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label small">Precio Base (Q.)</label>
-              <input v-model.number="nuevoV.montoBase" type="number" class="form-control mb-2" placeholder="Mínimo 20000">
-            </div>
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+          <div class="modal-header">
+            <h5 class="modal-title fw-bold"><i class="fa-solid fa-car me-2 text-primary"></i>Publicar Vehículo en Subasta</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <button class="btn btn-primary w-100 mt-3" @click="guardarVehiculo">Publicar en Subasta</button>
+          <div class="modal-body p-4">
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Marca</label>
+                <input v-model="nuevoV.marca" class="form-control" placeholder="Ej. Honda">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Modelo</label>
+                <input v-model="nuevoV.modelo" class="form-control" placeholder="Ej. Civic">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Año</label>
+                <input v-model.number="nuevoV.anio" type="number" class="form-control" placeholder="2021">
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Tipo de Artículo</label>
+                <input v-model="nuevoV.articulo" class="form-control" placeholder="Ej. Sedán Deportivo">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Motor</label>
+                <input v-model="nuevoV.motor" class="form-control" placeholder="Ej. 1.5L Turbo">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Cilindros</label>
+                <input v-model.number="nuevoV.cilindros" type="number" class="form-control" placeholder="4">
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Transmisión</label>
+                <select v-model="nuevoV.transmision" class="form-select">
+                  <option value="Automática">Automática</option>
+                  <option value="Mecánica">Mecánica</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Combustible</label>
+                <select v-model="nuevoV.combustible" class="form-select">
+                  <option value="Gasolina">Gasolina</option>
+                  <option value="Diésel">Diésel</option>
+                  <option value="Híbrido">Híbrido</option>
+                  <option value="Eléctrico">Eléctrico</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Tracción</label>
+                <select v-model="nuevoV.traccion" class="form-select">
+                  <option value="FWD">FWD (Delantera)</option>
+                  <option value="RWD">RWD (Trasera)</option>
+                  <option value="AWD">AWD (Integral)</option>
+                  <option value="4WD">4WD (4x4)</option>
+                </select>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Clasificación de Daño</label>
+                <select v-model="nuevoV.estadoDanio" class="form-select">
+                  <option value="Verde">Verde (Daño menor / Limpio)</option>
+                  <option value="Amarillo">Amarillo (Daño medio / Reparable)</option>
+                  <option value="Rojo">Rojo (Daño severo / Salvamento)</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Precio Base (Q.)</label>
+                <input v-model.number="nuevoV.montoBase" type="number" class="form-control" placeholder="Mínimo 20000">
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small fw-semibold">Galería de Fotos (URLs separadas por comas, o dejar vacío para fotos por defecto)</label>
+                <textarea v-model="nuevoV.fotosTexto" class="form-control" rows="2" placeholder="https://..., https://..."></textarea>
+                <small class="text-muted" style="font-size: 0.75rem;">Si no proporcionas 5 URLs, el sistema asignará automáticamente una galería de 5 fotos en alta resolución.</small>
+              </div>
+            </div>
+            <button class="btn btn-brand w-100 py-3 mt-4 rounded-3 fw-bold" @click="guardarVehiculo">
+              <i class="fa-solid fa-cloud-arrow-up me-1"></i> Publicar en Subasta
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- MODALES DE AUTENTICACIÓN -->
+    <!-- MODAL DE LOGIN -->
     <div class="modal fade" id="loginModal" tabindex="-1">
-      <div class="modal-dialog modal-sm">
-        <div class="modal-content p-3">
-          <h5 class="fw-bold mb-3">Iniciar Sesión</h5>
-          <input v-model="loginData.correo" type="email" class="form-control mb-2" placeholder="Correo">
-          <input v-model="loginData.password" type="password" class="form-control mb-3" placeholder="Contraseña">
-          <button class="btn btn-primary w-100" @click="login">Ingresar</button>
+      <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+          <div class="modal-body p-4 text-center">
+            <div class="bg-primary bg-opacity-10 text-primary rounded-circle mx-auto d-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+              <i class="fa-solid fa-user-check fa-lg"></i>
+            </div>
+            <h5 class="fw-bold mb-3">Iniciar Sesión</h5>
+            <div class="text-start mb-2">
+              <label class="form-label small fw-semibold">Correo</label>
+              <input v-model="loginData.correo" type="email" class="form-control" placeholder="correo@test.com">
+            </div>
+            <div class="text-start mb-3">
+              <label class="form-label small fw-semibold">Contraseña</label>
+              <input v-model="loginData.password" type="password" class="form-control" placeholder="••••">
+            </div>
+            <button class="btn btn-brand w-100 py-2 rounded-3 fw-semibold" @click="login">Ingresar</button>
+          </div>
         </div>
       </div>
     </div>
 
+    <!-- MODAL DE REGISTRO -->
     <div class="modal fade" id="registroModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content p-3">
-          <h5 class="fw-bold mb-3">Registro de Usuario</h5>
-          <input v-model="regData.nombre" type="text" class="form-control mb-2" placeholder="Nombre">
-          <input v-model="regData.apellido" type="text" class="form-control mb-2" placeholder="Apellido">
-          <input v-model="regData.correo" type="email" class="form-control mb-2" placeholder="Correo">
-          <input v-model="regData.telefono" type="text" class="form-control mb-2" placeholder="Teléfono">
-          <input v-model="regData.password" type="password" class="form-control mb-3" placeholder="Contraseña">
-          <button class="btn btn-success w-100" @click="registrar">Completar Registro</button>
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+          <div class="modal-body p-4">
+            <h5 class="fw-bold mb-3 text-center"><i class="fa-solid fa-user-plus text-primary me-2"></i>Crear Cuenta de Usuario</h5>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small fw-semibold">Nombre</label>
+                <input v-model="regData.nombre" type="text" class="form-control" placeholder="Nombre">
+              </div>
+              <div class="col-6">
+                <label class="form-label small fw-semibold">Apellido</label>
+                <input v-model="regData.apellido" type="text" class="form-control" placeholder="Apellido">
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-semibold">Correo Electrónico</label>
+                <input v-model="regData.correo" type="email" class="form-control" placeholder="correo@ejemplo.com">
+              </div>
+              <div class="col-6">
+                <label class="form-label small fw-semibold">Teléfono</label>
+                <input v-model="regData.telefono" type="text" class="form-control" placeholder="Teléfono">
+              </div>
+              <div class="col-6">
+                <label class="form-label small fw-semibold">Contraseña</label>
+                <input v-model="regData.password" type="password" class="form-control" placeholder="Contraseña">
+              </div>
+            </div>
+            <button class="btn btn-success w-100 py-2 rounded-3 fw-bold mt-4" @click="registrar">Completar Registro</button>
+          </div>
         </div>
       </div>
     </div>
+
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -263,9 +599,9 @@
           loginData: { correo: 'carlos@test.com', password: '123' },
           regData: { nombre: '', apellido: '', correo: '', telefono: '', password: '' },
           nuevoV: {
-            marca: '', modelo: '', anio: 2021, articulo: 'Camioneta', motor: '2.0L',
+            marca: '', modelo: '', anio: 2022, articulo: 'Camioneta Familiar', motor: '2.0L Turbo',
             cilindros: 4, transmision: 'Automática', combustible: 'Gasolina', traccion: 'AWD',
-            estadoDanio: 'Verde', montoBase: 25000
+            estadoDanio: 'Verde', montoBase: 25000, fotosTexto: ''
           }
         };
       },
@@ -274,7 +610,8 @@
           return this.vehiculos.filter(v => {
             const matchTexto = !this.filtros.texto || 
               v.marca.toLowerCase().includes(this.filtros.texto.toLowerCase()) || 
-              v.modelo.toLowerCase().includes(this.filtros.texto.toLowerCase());
+              v.modelo.toLowerCase().includes(this.filtros.texto.toLowerCase()) ||
+              v.articulo.toLowerCase().includes(this.filtros.texto.toLowerCase());
             const matchAnio = !this.filtros.anio || v.anio >= this.filtros.anio;
             const matchComb = !this.filtros.combustible || v.combustible === this.filtros.combustible;
             const matchDanio = !this.filtros.danio || v.estadoDanio === this.filtros.danio;
@@ -309,8 +646,12 @@
       },
       methods: {
         async cargarVehiculos() {
-          const res = await fetch('/api/vehiculos');
-          this.vehiculos = await res.json();
+          try {
+            const res = await fetch('/api/vehiculos');
+            this.vehiculos = await res.json();
+          } catch (e) {
+            console.error('Error cargando vehículos', e);
+          }
         },
         limpiarFiltros() {
           this.filtros = { texto: '', anio: null, combustible: '', danio: '' };
@@ -325,7 +666,9 @@
           if (res.ok) {
             this.usuario = data.usuario;
             bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
-          } else alert(data.error);
+          } else {
+            alert(data.error);
+          }
         },
         async registrar() {
           const res = await fetch('/api/auth/register', {
@@ -335,9 +678,11 @@
           });
           const data = await res.json();
           if (res.ok) {
-            alert('¡Usuario creado exitosamente!');
+            alert('¡Usuario registrado con éxito! Ya puedes iniciar sesión.');
             bootstrap.Modal.getInstance(document.getElementById('registroModal')).hide();
-          } else alert(data.error);
+          } else {
+            alert(data.error);
+          }
         },
         logout() {
           this.usuario = null;
@@ -355,11 +700,17 @@
           });
         },
         async guardarVehiculo() {
+          let fotosArray = [];
+          if (this.nuevoV.fotosTexto && this.nuevoV.fotosTexto.trim() !== '') {
+            fotosArray = this.nuevoV.fotosTexto.split(',').map(u => u.trim()).filter(u => u.length > 0);
+          }
+
           const res = await fetch('/api/vehiculos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               ...this.nuevoV,
+              fotos: fotosArray.length >= 5 ? fotosArray : undefined,
               usuarioId: this.usuario.id,
               fechaInicio: new Date().toISOString(),
               fechaCierre: new Date(Date.now() + 86400000).toISOString()
@@ -367,7 +718,9 @@
           });
           if (res.ok) {
             bootstrap.Modal.getInstance(document.getElementById('publicarModal')).hide();
-          } else alert('Error al guardar vehículo');
+          } else {
+            alert('Error al publicar el vehículo.');
+          }
         }
       }
     }).mount('#app');
