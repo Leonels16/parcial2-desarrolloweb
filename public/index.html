@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subastas de Vehículos Copart</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .badge-verde { background-color: #22c55e; color: white; }
+    .badge-amarillo { background-color: #eab308; color: white; }
+    .badge-rojo { background-color: #ef4444; color: white; }
+    .card-hover:hover { transform: translateY(-4px); transition: 0.2s ease-in-out; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+  <div id="app" class="container py-4">
+    <!-- NAVEGACIÓN SUPERIOR -->
+    <header class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+      <div>
+        <h2 class="fw-bold text-primary m-0">🚗 AutoSubastas Copart</h2>
+        <small class="text-secondary">Subasta de vehículos importados en tiempo real</small>
+      </div>
+      <div>
+        <span v-if="usuario" class="me-3">Sesión activa: <strong>{{ usuario.nombre }}</strong></span>
+        <button v-if="usuario" class="btn btn-outline-danger btn-sm" @click="logout">Salir</button>
+        <div v-else>
+          <button class="btn btn-outline-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#loginModal">Iniciar Sesión</button>
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#registroModal">Crear Cuenta</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTROL DE PUBLICACIÓN -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold m-0">Inventario Global de Subastas</h5>
+      <button v-if="usuario" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#publicarModal">+ Publicar Vehículo</button>
+      <span v-else class="badge bg-light text-dark border p-2">Modo lectura: Inicia sesión para pujar o publicar</span>
+    </div>
+
+    <!-- FILTROS MULTITAREA -->
+    <div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+      <div class="row g-2">
+        <div class="col-md-3">
+          <input v-model="filtros.texto" type="text" class="form-control form-control-sm" placeholder="Buscar marca o modelo...">
+        </div>
+        <div class="col-md-2">
+          <input v-model.number="filtros.anio" type="number" class="form-control form-control-sm" placeholder="Año mín.">
+        </div>
+        <div class="col-md-3">
+          <select v-model="filtros.combustible" class="form-select form-select-sm">
+            <option value="">Todos los Combustibles</option>
+            <option value="Gasolina">Gasolina</option>
+            <option value="Diésel">Diésel</option>
+            <option value="Híbrido">Híbrido</option>
+            <option value="Eléctrico">Eléctrico</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <select v-model="filtros.danio" class="form-select form-select-sm">
+            <option value="">Cualquier Daño</option>
+            <option value="Verde">Verde (Limpio)</option>
+            <option value="Amarillo">Amarillo (Reparable)</option>
+            <option value="Rojo">Rojo (Salvamento)</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-secondary btn-sm w-100" @click="limpiarFiltros">Restablecer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TARJETAS DE VEHÍCULOS -->
+    <div class="row g-4">
+      <div class="col-md-6 col-lg-4" v-for="v in vehiculosFiltrados" :key="v.id">
+        <div class="card h-100 card-hover border-0 shadow-sm">
+          <img :src="v.fotos[0]" class="card-img-top" style="height: 200px; object-fit: cover;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h5 class="card-title fw-bold m-0">{{ v.anio }} {{ v.marca }} {{ v.modelo }}</h5>
+              <span class="badge" :class="'badge-' + v.estadoDanio.toLowerCase()">{{ v.estadoDanio }}</span>
+            </div>
+            <p class="text-muted small mb-2">{{ v.articulo }} | {{ v.motor }} | {{ v.combustible }} | {{ v.traccion }}</p>
+
+            <div class="p-2 bg-light rounded my-2 text-center">
+              <span class="text-secondary small">Oferta Actual</span>
+              <h4 class="text-success fw-bold m-0">Q. {{ v.ofertaActual.toLocaleString() }}</h4>
+            </div>
+
+            <!-- INDICADORES EN TIEMPO REAL -->
+            <div v-if="usuario" class="mb-2 text-center">
+              <span v-if="v.ganadorActualId === usuario.id" class="badge bg-success w-100 py-2">🎉 ¡Vas ganando esta subasta!</span>
+              <span v-else-if="v.historialPujas && v.historialPujas.some(h => v.ganadorActualId !== usuario.id)" class="badge bg-danger w-100 py-2">⚠️ ¡Tu oferta ha sido superada!</span>
+            </div>
+
+            <button class="btn btn-outline-primary w-100 mt-2" @click="abrirSubasta(v)">Ver Detalle y Ofertar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL DETALLE Y SUBASTA -->
+    <div class="modal fade" id="subastaModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content" v-if="seleccionado">
+          <div class="modal-header">
+            <h5 class="modal-title fw-bold">{{ seleccionado.anio }} {{ seleccionado.marca }} {{ seleccionado.modelo }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <!-- CARRUSEL DE FOTOS -->
+            <div id="carruselFotos" class="carousel slide mb-3" data-bs-ride="carousel">
+              <div class="carousel-inner rounded">
+                <div v-for="(f, i) in seleccionado.fotos" :key="i" class="carousel-item" :class="{ active: i === 0 }">
+                  <img :src="f" class="d-block w-100" style="height: 350px; object-fit: cover;">
+                </div>
+              </div>
+              <button class="carousel-control-prev" type="button" data-bs-target="#carruselFotos" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon"></span>
+              </button>
+              <button class="carousel-control-next" type="button" data-bs-target="#carruselFotos" data-bs-slide="next">
+                <span class="carousel-control-next-icon"></span>
+              </button>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6">
+                <h6><strong>Ficha Técnica:</strong></h6>
+                <ul class="small list-unstyled">
+                  <li><strong>Motor:</strong> {{ seleccionado.motor }} ({{ seleccionado.cilindros }} Cilindros)</li>
+                  <li><strong>Transmisión:</strong> {{ seleccionado.transmision }}</li>
+                  <li><strong>Tracción:</strong> {{ seleccionado.traccion }}</li>
+                  <li><strong>Cierre:</strong> {{ new Date(seleccionado.fechaCierre).toLocaleString() }}</li>
+                </ul>
+              </div>
+              <div class="col-md-6 text-end">
+                <span class="text-muted">Monto Base: Q. {{ seleccionado.montoBase.toLocaleString() }}</span>
+                <h3 class="text-success fw-bold">Actual: Q. {{ seleccionado.ofertaActual.toLocaleString() }}</h3>
+                <small class="text-danger">Mínimo próxima puja (+10%): Q. {{ (seleccionado.ofertaActual * 1.10).toFixed(2) }}</small>
+              </div>
+            </div>
+
+            <div class="mt-4 p-3 border rounded bg-light" v-if="usuario">
+              <h6>Realizar Oferta</h6>
+              <div class="input-group">
+                <span class="input-group-text">Q.</span>
+                <input type="number" class="form-control" v-model.number="montoOferta" :min="(seleccionado.ofertaActual * 1.10).toFixed(2)">
+                <button class="btn btn-success px-4" @click="enviarPuja">Pujar Ahora</button>
+              </div>
+            </div>
+            <div v-else class="alert alert-warning mt-3 text-center">
+              Debes registrarte o iniciar sesión para poder realizar una puja.
+            </div>
+
+            <div class="mt-3">
+              <h6>Historial de Ofertas (Postores Anónimos):</h6>
+              <ul class="list-group list-group-flush small">
+                <li v-for="(p, i) in seleccionado.historialPujas" :key="i" class="list-group-item d-flex justify-content-between">
+                  <span>{{ p.postor }}</span>
+                  <strong class="text-success">Q. {{ p.monto.toLocaleString() }}</strong>
+                  <span class="text-muted">{{ p.hora }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL NUEVO VEHÍCULO -->
+    <div class="modal fade" id="publicarModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content p-3">
+          <h5 class="fw-bold mb-3">Publicar Vehículo para Subasta</h5>
+          <div class="row g-2">
+            <div class="col-md-4"><input v-model="nuevoV.marca" class="form-control mb-2" placeholder="Marca (ej. Mazda)"></div>
+            <div class="col-md-4"><input v-model="nuevoV.modelo" class="form-control mb-2" placeholder="Modelo (ej. CX-5)"></div>
+            <div class="col-md-4"><input v-model.number="nuevoV.anio" type="number" class="form-control mb-2" placeholder="Año (ej. 2020)"></div>
+            <div class="col-md-4"><input v-model="nuevoV.articulo" class="form-control mb-2" placeholder="Tipo (ej. Camioneta)"></div>
+            <div class="col-md-4"><input v-model="nuevoV.motor" class="form-control mb-2" placeholder="Motor (ej. 2.0L)"></div>
+            <div class="col-md-4"><input v-model.number="nuevoV.cilindros" type="number" class="form-control mb-2" placeholder="Cilindros (ej. 4)"></div>
+            <div class="col-md-4">
+              <select v-model="nuevoV.transmision" class="form-select mb-2">
+                <option value="Automática">Automática</option>
+                <option value="Mecánica">Mecánica</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <select v-model="nuevoV.combustible" class="form-select mb-2">
+                <option value="Gasolina">Gasolina</option>
+                <option value="Diésel">Diésel</option>
+                <option value="Híbrido">Híbrido</option>
+                <option value="Eléctrico">Eléctrico</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <select v-model="nuevoV.traccion" class="form-select mb-2">
+                <option value="FWD">FWD</option>
+                <option value="RWD">RWD</option>
+                <option value="AWD">AWD</option>
+                <option value="4WD">4WD</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Estado del Daño</label>
+              <select v-model="nuevoV.estadoDanio" class="form-select mb-2">
+                <option value="Verde">Verde (Daño menor / Limpio)</option>
+                <option value="Amarillo">Amarillo (Daño medio / Reparable)</option>
+                <option value="Rojo">Rojo (Daño severo / Salvamento)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Precio Base (Q.)</label>
+              <input v-model.number="nuevoV.montoBase" type="number" class="form-control mb-2" placeholder="Mínimo 20000">
+            </div>
+          </div>
+          <button class="btn btn-primary w-100 mt-3" @click="guardarVehiculo">Publicar en Subasta</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODALES DE AUTENTICACIÓN -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content p-3">
+          <h5 class="fw-bold mb-3">Iniciar Sesión</h5>
+          <input v-model="loginData.correo" type="email" class="form-control mb-2" placeholder="Correo">
+          <input v-model="loginData.password" type="password" class="form-control mb-3" placeholder="Contraseña">
+          <button class="btn btn-primary w-100" @click="login">Ingresar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="registroModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content p-3">
+          <h5 class="fw-bold mb-3">Registro de Usuario</h5>
+          <input v-model="regData.nombre" type="text" class="form-control mb-2" placeholder="Nombre">
+          <input v-model="regData.apellido" type="text" class="form-control mb-2" placeholder="Apellido">
+          <input v-model="regData.correo" type="email" class="form-control mb-2" placeholder="Correo">
+          <input v-model="regData.telefono" type="text" class="form-control mb-2" placeholder="Teléfono">
+          <input v-model="regData.password" type="password" class="form-control mb-3" placeholder="Contraseña">
+          <button class="btn btn-success w-100" @click="registrar">Completar Registro</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const { createApp } = Vue;
+    createApp({
+      data() {
+        return {
+          socket: null,
+          usuario: null,
+          vehiculos: [],
+          seleccionado: null,
+          montoOferta: 0,
+          filtros: { texto: '', anio: null, combustible: '', danio: '' },
+          loginData: { correo: 'carlos@test.com', password: '123' },
+          regData: { nombre: '', apellido: '', correo: '', telefono: '', password: '' },
+          nuevoV: {
+            marca: '', modelo: '', anio: 2021, articulo: 'Camioneta', motor: '2.0L',
+            cilindros: 4, transmision: 'Automática', combustible: 'Gasolina', traccion: 'AWD',
+            estadoDanio: 'Verde', montoBase: 25000
+          }
+        };
+      },
+      computed: {
+        vehiculosFiltrados() {
+          return this.vehiculos.filter(v => {
+            const matchTexto = !this.filtros.texto || 
+              v.marca.toLowerCase().includes(this.filtros.texto.toLowerCase()) || 
+              v.modelo.toLowerCase().includes(this.filtros.texto.toLowerCase());
+            const matchAnio = !this.filtros.anio || v.anio >= this.filtros.anio;
+            const matchComb = !this.filtros.combustible || v.combustible === this.filtros.combustible;
+            const matchDanio = !this.filtros.danio || v.estadoDanio === this.filtros.danio;
+            return matchTexto && matchAnio && matchComb && matchDanio;
+          });
+        }
+      },
+      mounted() {
+        this.socket = io();
+        this.cargarVehiculos();
+
+        this.socket.on('pujaActualizada', (data) => {
+          const v = this.vehiculos.find(item => item.id == data.vehiculoId);
+          if (v) {
+            v.ofertaActual = data.nuevaOferta;
+            v.ganadorActualId = data.ganadorActualId;
+            v.historialPujas = data.historial;
+          }
+          if (this.seleccionado && this.seleccionado.id == data.vehiculoId) {
+            this.seleccionado.ofertaActual = data.nuevaOferta;
+            this.seleccionado.ganadorActualId = data.ganadorActualId;
+            this.seleccionado.historialPujas = data.historial;
+            this.montoOferta = Math.round(data.nuevaOferta * 1.10);
+          }
+        });
+
+        this.socket.on('nuevoVehiculo', (v) => {
+          this.vehiculos.unshift(v);
+        });
+
+        this.socket.on('errorPuja', (msg) => alert(msg));
+      },
+      methods: {
+        async cargarVehiculos() {
+          const res = await fetch('/api/vehiculos');
+          this.vehiculos = await res.json();
+        },
+        limpiarFiltros() {
+          this.filtros = { texto: '', anio: null, combustible: '', danio: '' };
+        },
+        async login() {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.loginData)
+          });
+          const data = await res.json();
+          if (res.ok) {
+            this.usuario = data.usuario;
+            bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+          } else alert(data.error);
+        },
+        async registrar() {
+          const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.regData)
+          });
+          const data = await res.json();
+          if (res.ok) {
+            alert('¡Usuario creado exitosamente!');
+            bootstrap.Modal.getInstance(document.getElementById('registroModal')).hide();
+          } else alert(data.error);
+        },
+        logout() {
+          this.usuario = null;
+        },
+        abrirSubasta(v) {
+          this.seleccionado = v;
+          this.montoOferta = Math.round(v.ofertaActual * 1.10);
+          new bootstrap.Modal(document.getElementById('subastaModal')).show();
+        },
+        enviarPuja() {
+          this.socket.emit('realizarPuja', {
+            vehiculoId: this.seleccionado.id,
+            monto: this.montoOferta,
+            usuarioId: this.usuario.id
+          });
+        },
+        async guardarVehiculo() {
+          const res = await fetch('/api/vehiculos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...this.nuevoV,
+              usuarioId: this.usuario.id,
+              fechaInicio: new Date().toISOString(),
+              fechaCierre: new Date(Date.now() + 86400000).toISOString()
+            })
+          });
+          if (res.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('publicarModal')).hide();
+          } else alert('Error al guardar vehículo');
+        }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
