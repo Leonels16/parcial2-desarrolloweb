@@ -699,29 +699,43 @@
             usuarioId: this.usuario.id
           });
         },
-        async guardarVehiculo() {
-          let fotosArray = [];
-          if (this.nuevoV.fotosTexto && this.nuevoV.fotosTexto.trim() !== '') {
-            fotosArray = this.nuevoV.fotosTexto.split(',').map(u => u.trim()).filter(u => u.length > 0);
-          }
+       async guardarVehiculo() {
+      let fotosArray = [];
+      if (this.nuevoV.fotosTexto && this.nuevoV.fotosTexto.trim() !== '') {
+        // Divide por comas o saltos de línea y toma URLs válidas
+        fotosArray = this.nuevoV.fotosTexto
+          .split(/[\n,]+/)
+          .map(u => u.trim())
+          .filter(u => u.startsWith('http'));
+      }
 
-          const res = await fetch('/api/vehiculos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...this.nuevoV,
-              fotos: fotosArray.length >= 5 ? fotosArray : undefined,
-              usuarioId: this.usuario.id,
-              fechaInicio: new Date().toISOString(),
-              fechaCierre: new Date(Date.now() + 86400000).toISOString()
-            })
-          });
-          if (res.ok) {
-            bootstrap.Modal.getInstance(document.getElementById('publicarModal')).hide();
-          } else {
-            alert('Error al publicar el vehículo.');
-          }
+      // Si ingresaste al menos una imagen, se asegura de tener 5 repitiendo la primera
+      // para cumplir la regla del carrusel y que se vea tu foto
+      if (fotosArray.length > 0) {
+        while (fotosArray.length < 5) {
+          fotosArray.push(fotosArray[0]);
         }
+      }
+
+      const res = await fetch('/api/vehiculos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...this.nuevoV,
+          fotos: fotosArray.length >= 5 ? fotosArray : undefined,
+          usuarioId: this.usuario.id,
+          fechaInicio: new Date().toISOString(),
+          fechaCierre: new Date(Date.now() + 86400000).toISOString()
+        })
+      });
+
+      if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('publicarModal')).hide();
+        this.nuevoV.fotosTexto = '';
+      } else {
+        alert('Error al publicar el vehículo.');
+      }
+    }
       }
     }).mount('#app');
   </script>
