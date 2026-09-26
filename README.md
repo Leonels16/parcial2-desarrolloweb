@@ -2,7 +2,7 @@
 
 - **Estudiante:** Oscar Leonel Cruz Paredes
 - **Curso:** Desarrollo Web (2do. Parcial)
-- **URL de Producción:** (Se agregará una vez desplegado en Render)
+- **URL de Producción:** (https://parcial2-desarrolloweb.onrender.com)
 
 ## Credenciales de Prueba Cruzada
 Para verificar las pruebas simultáneas entre múltiples navegadores sin refrescar la página:
